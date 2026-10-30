@@ -77,11 +77,13 @@ cd pcf/HandoffBriefCard && npm install && npm start
 
 If an agent doesn't send `zrh_HandoffBrief`, the card builds a basic brief from the variables every Copilot Studio handoff already carries (`va_LastPhrases`, `va_LastTopic`, `va_AgentMessage`, `va_Topics`, plus your topic variables). Dropping the control onto the form already helps; adding the topics makes it great.
 
+> **Gotcha found while building this:** Dynamics 365 only saves a variable the AI agent sends on transfer when that variable is **registered on the workstream**. Unregistered ones (including the default `va_*` variables) can drive routing but are never stored on the conversation, so nothing on the form can read them later. `scripts/setup-dataverse.mjs --workstream "<name>"` registers `zrh_HandoffBrief` and the `va_*` variables for you.
+
 ## Status and limits
 
 - The live re-ask warning reads `msdyn_commontranscriptmessage`, a per-message table Microsoft documented in September 2026. If your org doesn't populate it during the conversation, the card says the live check is unavailable and everything else keeps working.
 - Copilot Studio can't insert text into the representative's reply box from a form control, so the opener and facts have Copy buttons.
-- Built and tested against the standard (classic) Copilot Studio agent. The newer Customer Conversation harness (preview) has its own Escalate tool; support for it is on the roadmap.
+- Built for the standard (classic) Copilot Studio agent. The newer Customer Conversation harness (preview) has its own Escalate tool; support for it is on the roadmap.
 
 ## License
 

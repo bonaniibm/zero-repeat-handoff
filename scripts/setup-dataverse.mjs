@@ -173,8 +173,21 @@ async function ensureTable() {
     }
 }
 
-/** Registers zrh_HandoffBrief as a context variable on a workstream so routing and the card can rely on it. */
-async function ensureContextVariable(workstream) {
+/**
+ * Variables registered on the workstream. Dynamics 365 only saves a variable the agent sends on transfer
+ * (as a context item on the conversation) when it's registered here, so the card can read it later.
+ * The va_* ones feed the card's fallback brief for agents that don't send zrh_HandoffBrief.
+ */
+const CONTEXT_VARIABLES = [
+    ["zrh_HandoffBrief", "Handoff brief"],
+    ["va_LastTopic", "AI agent: last topic"],
+    ["va_LastPhrases", "AI agent: last customer phrase"],
+    ["va_Phrases", "AI agent: customer phrases"],
+    ["va_Topics", "AI agent: topics"],
+    ["va_AgentMessage", "AI agent: message to representative"],
+];
+
+async function ensureContextVariables(workstream) {
     const isGuid = /^[0-9a-f-]{36}$/i.test(workstream);
     const ws = (
         await call(
@@ -183,16 +196,14 @@ async function ensureContextVariable(workstream) {
         )
     ).value[0];
     if (!ws) throw new Error(`Workstream not found: ${workstream}`);
-    const existing = (
-        await call(
-            "GET",
-            `msdyn_ocliveworkstreamcontextvariables?$select=msdyn_name&$filter=msdyn_name eq 'zrh_HandoffBrief' and _msdyn_liveworkstreamid_value eq ${ws.msdyn_liveworkstreamid}`,
-        )
-    ).value[0];
-    if (existing) {
-        console.log(`Context variable zrh_HandoffBrief already on "${ws.msdyn_name}"`);
-        return;
-    }
+    const existing = new Set(
+        (
+            await call(
+                "GET",
+                `msdyn_ocliveworkstreamcontextvariables?$select=msdyn_name&$filter=_msdyn_liveworkstreamid_value eq ${ws.msdyn_liveworkstreamid}`,
+            )
+        ).value.map((v) => v.msdyn_name.toLowerCase()),
+    );
     // Look up the "Text" option of msdyn_datatype instead of hard-coding its value.
     const meta = await call(
         "GET",
@@ -203,18 +214,24 @@ async function ensureContextVariable(workstream) {
     );
     if (!textOption) throw new Error("Couldn't find the Text option of msdyn_datatype");
     const textType = textOption.Value;
-    await call("POST", "msdyn_ocliveworkstreamcontextvariables", {
-        msdyn_name: "zrh_HandoffBrief",
-        msdyn_displayname: "Handoff brief",
-        msdyn_datatype: textType,
-        msdyn_isdisplayable: false,
-        "msdyn_liveworkstreamid@odata.bind": `/msdyn_liveworkstreams(${ws.msdyn_liveworkstreamid})`,
-    });
-    console.log(`Added context variable zrh_HandoffBrief to workstream "${ws.msdyn_name}"`);
+    for (const [name, display] of CONTEXT_VARIABLES) {
+        if (existing.has(name.toLowerCase())) {
+            console.log(`Context variable ${name} already on "${ws.msdyn_name}"`);
+            continue;
+        }
+        await call("POST", "msdyn_ocliveworkstreamcontextvariables", {
+            msdyn_name: name,
+            msdyn_displayname: display,
+            msdyn_datatype: textType,
+            msdyn_isdisplayable: false,
+            "msdyn_liveworkstreamid@odata.bind": `/msdyn_liveworkstreams(${ws.msdyn_liveworkstreamid})`,
+        });
+        console.log(`Added context variable ${name} to workstream "${ws.msdyn_name}"`);
+    }
 }
 
 await ensurePublisherAndSolution();
 await ensureTable();
-if (args.workstream) await ensureContextVariable(args.workstream);
+if (args.workstream) await ensureContextVariables(args.workstream);
 await call("POST", "PublishAllXml", {});
 console.log("Done. Published customizations.");

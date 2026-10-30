@@ -27,7 +27,11 @@ cd pcf/HandoffBriefCard && npm install
 pac pcf push --solution-unique-name ZeroRepeatHandoff
 ```
 
-`setup-dataverse.mjs` creates the `zrh` publisher, the `ZeroRepeatHandoff` solution and the `zrh_handoffquality` table, and (with `--workstream`) registers `zrh_HandoffBrief` as a context variable on your chat workstream. Re-running it is safe.
+`setup-dataverse.mjs` creates the `zrh` publisher, the `ZeroRepeatHandoff` solution and the `zrh_handoffquality` table. With `--workstream` it registers `zrh_HandoffBrief` and the default `va_*` handoff variables as context variables on the workstream your agent hands off into. **This step matters even if you import the solution:** Dynamics 365 only stores variables that are registered on the workstream, and the card can only read stored ones. Re-running the script is safe.
+
+If the Azure CLI sign-in window doesn't appear on Windows, run it once with the broker off: `AZURE_CORE_ENABLE_BROKER_ON_WINDOWS=false az login --tenant <tenant> --allow-no-subscriptions`. If your tenant blocks device-code sign-in (error AADSTS530035), use `pac auth create` without `--deviceCode`.
+
+The control uses the React 16.14 and Fluent UI 9.46.2 platform libraries; newer Fluent versions are rejected by some orgs at import.
 
 ## 3. Copilot Studio
 

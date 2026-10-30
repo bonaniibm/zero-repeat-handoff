@@ -1,0 +1,22 @@
+{
+  "v": 1,
+  "reason": "Password reset link never arrived",
+  "goal": "Get back into the Contoso account before tonight's order cut-off",
+  "summary": "Sam can't sign in. The AI agent verified Sam by email code and sent a reset link twice; neither arrived. Sam has a pending order ORD-10482 that ships tonight.",
+  "escalation": "unresolved",
+  "facts": [
+    { "k": "Name", "v": "Sam Rivera" },
+    { "k": "Email", "v": "s.rivera@fabrikam.com", "ask": ["email", "e-mail address"] },
+    { "k": "Order number", "v": "ORD-10482", "ask": ["order number", "order id", "order #"] },
+    { "k": "Device", "v": "iPhone, Contoso app 5.2" }
+  ],
+  "verified": { "status": "verified", "method": "Email one-time code", "at": "2026-10-30T14:02:11Z" },
+  "tried": [
+    { "step": "Sent password reset link", "outcome": "failed", "note": "Customer says it didn't arrive (checked spam)" },
+    { "step": "Re-sent reset link", "outcome": "failed", "note": "Still not received after 5 minutes" }
+  ],
+  "sentiment": "negative",
+  "urgency": "high",
+  "next": "Check the mail log for bounces, then reset the password manually and send a temporary code by SMS.",
+  "opener": "Hi Sam, I can see the reset link didn't arrive twice and that ORD-10482 needs to ship tonight. Let me sort out your access right now."
+}

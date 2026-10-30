@@ -1,0 +1,53 @@
+# ZRH - Log step
+# Call this after the agent tries something on the customer's behalf (sent a reset link,
+# checked an order, offered a refund...). It appends {"step","outcome","note"} to Global.zrh_TriedJson
+# so the human representative sees what was already tried and what happened.
+kind: AdaptiveDialog
+inputs:
+  - kind: AutomaticTaskInput
+    propertyName: Step
+    description: What the agent did, for example "Sent password reset link".
+    entity: StringPrebuiltEntity
+    shouldPromptUser: false
+
+  - kind: AutomaticTaskInput
+    propertyName: Outcome
+    description: One of succeeded, failed, partial, declined.
+    entity: StringPrebuiltEntity
+    shouldPromptUser: false
+
+  - kind: AutomaticTaskInput
+    propertyName: Note
+    description: Optional detail, for example "Customer says it didn't arrive".
+    entity: StringPrebuiltEntity
+    shouldPromptUser: false
+
+modelDescription: Internal helper. Records a step the agent already tried and its outcome for the human representative. Do not trigger from user messages.
+beginDialog:
+  kind: OnRedirect
+  id: main
+  actions:
+    - kind: SetVariable
+      id: zrhAppendStep
+      variable: Global.zrh_TriedJson
+      value: |-
+        =If(IsBlank(Global.zrh_TriedJson), "", Global.zrh_TriedJson & ",") &
+        "{""step"":" & JSON(Left(Coalesce(Topic.Step, "Step"), 120)) &
+        ",""outcome"":" & JSON(If(Lower(Topic.Outcome) in ["succeeded", "failed", "partial", "declined"], Lower(Topic.Outcome), "partial")) &
+        If(IsBlank(Topic.Note), "", ",""note"":" & JSON(Left(Topic.Note, 160))) & "}"
+
+inputType:
+  properties:
+    Step:
+      displayName: Step
+      type: String
+
+    Outcome:
+      displayName: Outcome
+      type: String
+
+    Note:
+      displayName: Note
+      type: String
+
+outputType: {}

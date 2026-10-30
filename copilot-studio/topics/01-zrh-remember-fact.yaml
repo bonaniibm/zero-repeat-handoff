@@ -1,0 +1,49 @@
+# ZRH - Remember fact
+# Call this (Redirect / "Go to another topic") whenever the customer gives you something a human
+# would otherwise ask for again: order number, email, account id, device...
+# It appends {"k": Label, "v": Value} to Global.zrh_FactsJson.
+kind: AdaptiveDialog
+inputs:
+  - kind: AutomaticTaskInput
+    propertyName: Label
+    description: Short label for the fact, for example "Order number" or "Email".
+    entity: StringPrebuiltEntity
+    shouldPromptUser: false
+
+  - kind: AutomaticTaskInput
+    propertyName: Value
+    description: The value exactly as the customer gave it. Mask secrets such as passwords or full card numbers.
+    entity: StringPrebuiltEntity
+    shouldPromptUser: false
+
+modelDescription: Internal helper. Remembers a fact the customer already gave so a human representative never asks for it again. Do not trigger from user messages.
+beginDialog:
+  kind: OnRedirect
+  id: main
+  actions:
+    - kind: ConditionGroup
+      id: zrhFactHasValue
+      conditions:
+        - id: zrhFactHasValueYes
+          condition: =!IsBlank(Topic.Label) && !IsBlank(Topic.Value)
+          actions:
+            - kind: SetVariable
+              id: zrhAppendFact
+              variable: Global.zrh_FactsJson
+              value: |-
+                =If(IsBlank(Global.zrh_FactsJson), "", Global.zrh_FactsJson & ",") &
+                "{""k"":" & JSON(Left(Topic.Label, 40)) & ",""v"":" & JSON(Left(Topic.Value, 120)) & "}"
+
+inputType:
+  properties:
+    Label:
+      displayName: Label
+      description: Short label for the fact.
+      type: String
+
+    Value:
+      displayName: Value
+      description: The value the customer gave.
+      type: String
+
+outputType: {}

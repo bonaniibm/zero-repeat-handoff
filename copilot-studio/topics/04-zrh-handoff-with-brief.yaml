@@ -1,0 +1,179 @@
+# ZRH - Hand off with brief
+# Replaces the body of your Escalate system topic (or call it from any topic that must hand off).
+#
+# With generative orchestration ON, the orchestrator fills the inputs below from the conversation
+# history, so the summary, sentiment and suggested opener cost no extra plumbing.
+# Facts, tried steps and verification come from the helper topics (deterministic, never invented).
+#
+# It writes ONE global variable, Global.zrh_HandoffBrief (schema: /schema/handoff-brief.schema.json),
+# which Copilot Studio passes to Dynamics 365 as a context variable on transfer.
+# Limits: 4,000 characters per context variable value, 28 KB for all variables together.
+# Over 28 KB the transfer still happens but WITHOUT any variables, so this topic shrinks the brief
+# and clears the working variables before transferring.
+kind: AdaptiveDialog
+inputs:
+  - kind: AutomaticTaskInput
+    propertyName: Reason
+    description: In one line, why the customer contacted us, in their terms. Example "Password reset link never arrived".
+    entity: StringPrebuiltEntity
+    shouldPromptUser: false
+
+  - kind: AutomaticTaskInput
+    propertyName: Goal
+    description: In one line, what the customer wants to end up with.
+    entity: StringPrebuiltEntity
+    shouldPromptUser: false
+
+  - kind: AutomaticTaskInput
+    propertyName: Summary
+    description: Two or three factual sentences on the conversation so far, for the human representative. No greetings.
+    entity: StringPrebuiltEntity
+    shouldPromptUser: false
+
+  - kind: AutomaticTaskInput
+    propertyName: Escalation
+    description: Why we are handing off. Exactly one of customer_request, policy, unresolved, sentiment, authentication, high_value, other.
+    entity: StringPrebuiltEntity
+    shouldPromptUser: false
+
+  - kind: AutomaticTaskInput
+    propertyName: Sentiment
+    description: The customer's current mood. Exactly one of positive, neutral, negative.
+    entity: StringPrebuiltEntity
+    shouldPromptUser: false
+
+  - kind: AutomaticTaskInput
+    propertyName: Urgency
+    description: How urgent the issue is for the customer. Exactly one of low, medium, high.
+    entity: StringPrebuiltEntity
+    shouldPromptUser: false
+
+  - kind: AutomaticTaskInput
+    propertyName: NextStep
+    description: The most useful next step for the human representative, in one sentence.
+    entity: StringPrebuiltEntity
+    shouldPromptUser: false
+
+  - kind: AutomaticTaskInput
+    propertyName: Opener
+    description: A first message the representative can send that addresses the customer by name if known and proves we know what already happened. Never ask for information the customer already gave.
+    entity: StringPrebuiltEntity
+    shouldPromptUser: false
+
+modelDescription: Hands the conversation to a human representative with a brief of everything the customer already said and what was already tried. Use when the customer asks for a person, when the issue can't be resolved, when policy requires a person, or when the customer is upset.
+beginDialog:
+  # Triggered by the orchestrator from modelDescription (so it can fill the inputs from the conversation),
+  # and also reachable by redirect from the Escalate system topic (inputs then fall back to defaults).
+  kind: OnRecognizedIntent
+  id: main
+  intent: {}
+  actions:
+    # 1. Common parts reused by the full and the compact brief.
+    - kind: SetVariable
+      id: zrhHead
+      variable: Topic.Head
+      value: |-
+        ="{""v"":1,""reason"":" & JSON(Left(Coalesce(Topic.Reason, "Escalated by the AI agent"), 160)) &
+        If(IsBlank(Global.zrh_VerifiedJson), "", ",""verified"":" & Global.zrh_VerifiedJson) &
+        ",""facts"":[" & Coalesce(Global.zrh_FactsJson, "") & "]" &
+        If(IsBlank(Topic.Opener), "", ",""opener"":" & JSON(Left(Topic.Opener, 300)))
+
+    # 2. Full brief.
+    - kind: SetVariable
+      id: zrhFull
+      variable: Global.zrh_HandoffBrief
+      value: |-
+        =Topic.Head &
+        If(IsBlank(Topic.Goal), "", ",""goal"":" & JSON(Left(Topic.Goal, 160))) &
+        If(IsBlank(Topic.Summary), "", ",""summary"":" & JSON(Left(Topic.Summary, 400))) &
+        If(Lower(Topic.Escalation) in ["customer_request", "policy", "unresolved", "sentiment", "authentication", "high_value", "other"], ",""escalation"":" & JSON(Lower(Topic.Escalation)), "") &
+        If(Lower(Topic.Sentiment) in ["positive", "neutral", "negative"], ",""sentiment"":" & JSON(Lower(Topic.Sentiment)), "") &
+        If(Lower(Topic.Urgency) in ["low", "medium", "high"], ",""urgency"":" & JSON(Lower(Topic.Urgency)), "") &
+        If(IsBlank(Topic.NextStep), "", ",""next"":" & JSON(Left(Topic.NextStep, 200))) &
+        ",""tried"":[" & Coalesce(Global.zrh_TriedJson, "") & "]}"
+
+    # 3. Size guard: Dynamics 365 caps one context variable value at 4,000 characters.
+    - kind: ConditionGroup
+      id: zrhSizeGuard
+      conditions:
+        - id: zrhTooBig
+          condition: =Len(Global.zrh_HandoffBrief) > 3900
+          actions:
+            - kind: SetVariable
+              id: zrhCompact
+              variable: Global.zrh_HandoffBrief
+              value: =Topic.Head & "}"
+
+            - kind: ConditionGroup
+              id: zrhStillTooBig
+              conditions:
+                - id: zrhStillTooBigYes
+                  condition: =Len(Global.zrh_HandoffBrief) > 3900
+                  actions:
+                    - kind: SetVariable
+                      id: zrhMinimal
+                      variable: Global.zrh_HandoffBrief
+                      value: ="{""v"":1,""reason"":" & JSON(Left(Coalesce(Topic.Reason, "Escalated by the AI agent"), 160)) & "}"
+
+    # 4. Clear the working variables so they don't count twice toward the 28 KB transfer limit.
+    - kind: SetVariable
+      id: zrhClearFacts
+      variable: Global.zrh_FactsJson
+      value: =Blank()
+
+    - kind: SetVariable
+      id: zrhClearTried
+      variable: Global.zrh_TriedJson
+      value: =Blank()
+
+    - kind: SetVariable
+      id: zrhClearVerified
+      variable: Global.zrh_VerifiedJson
+      value: =Blank()
+
+    - kind: SendActivity
+      id: zrhTellCustomer
+      activity: I'm connecting you with a colleague now. They'll see everything we've covered, so you won't need to repeat yourself.
+
+    # 5. Transfer. The private message becomes va_AgentMessage for engagement hubs that don't read the brief.
+    - kind: TransferConversationV2
+      id: zrhTransfer
+      transferType:
+        kind: TransferToAgent
+        messageToAgent: =Coalesce(Topic.Summary, Topic.Reason, "Escalated by the AI agent")
+
+inputType:
+  properties:
+    Reason:
+      displayName: Reason
+      type: String
+
+    Goal:
+      displayName: Goal
+      type: String
+
+    Summary:
+      displayName: Summary
+      type: String
+
+    Escalation:
+      displayName: Escalation
+      type: String
+
+    Sentiment:
+      displayName: Sentiment
+      type: String
+
+    Urgency:
+      displayName: Urgency
+      type: String
+
+    NextStep:
+      displayName: NextStep
+      type: String
+
+    Opener:
+      displayName: Opener
+      type: String
+
+outputType: {}

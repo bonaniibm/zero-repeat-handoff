@@ -1,0 +1,9 @@
+node_modules/
+out/
+obj/
+bin/
+generated/
+*.log
+.env
+solution/**/bin/
+solution/**/obj/

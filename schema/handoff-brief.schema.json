@@ -1,0 +1,92 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/bonaniibm/zero-repeat-handoff/schema/handoff-brief.schema.json",
+  "title": "Handoff Brief",
+  "description": "What a Copilot Studio agent hands to a human representative so the customer never has to repeat themselves. Serialized into ONE context variable (zrh_HandoffBrief). Dynamics 365 caps a context variable value at 4,000 characters and the whole transfer payload at 28 KB, so keep it compact.",
+  "type": "object",
+  "required": ["v", "reason"],
+  "additionalProperties": false,
+  "properties": {
+    "v": {
+      "description": "Schema version.",
+      "const": 1
+    },
+    "reason": {
+      "description": "Why the customer contacted us, in one line.",
+      "type": "string",
+      "maxLength": 160
+    },
+    "goal": {
+      "description": "What the customer wants to end up with.",
+      "type": "string",
+      "maxLength": 160
+    },
+    "summary": {
+      "description": "Two or three sentences on the conversation so far.",
+      "type": "string",
+      "maxLength": 400
+    },
+    "escalation": {
+      "description": "Why the AI agent handed off.",
+      "enum": ["customer_request", "policy", "unresolved", "sentiment", "authentication", "high_value", "other"]
+    },
+    "facts": {
+      "description": "Everything the customer already told the AI agent. The representative must not ask for these again.",
+      "type": "array",
+      "maxItems": 15,
+      "items": {
+        "type": "object",
+        "required": ["k", "v"],
+        "additionalProperties": false,
+        "properties": {
+          "k": { "description": "Label, e.g. 'Order number'.", "type": "string", "maxLength": 40 },
+          "v": { "description": "Value as the customer gave it (mask secrets).", "type": "string", "maxLength": 120 },
+          "ask": {
+            "description": "Optional phrases a representative would use to ask for this fact; used by the re-ask detector. Defaults are derived from the label.",
+            "type": "array",
+            "items": { "type": "string", "maxLength": 40 },
+            "maxItems": 5
+          }
+        }
+      }
+    },
+    "verified": {
+      "description": "Identity verification done by the AI agent.",
+      "type": "object",
+      "required": ["status"],
+      "additionalProperties": false,
+      "properties": {
+        "status": { "enum": ["verified", "partial", "none"] },
+        "method": { "description": "e.g. 'Email one-time code', 'Signed-in chat'.", "type": "string", "maxLength": 60 },
+        "at": { "description": "ISO 8601 timestamp.", "type": "string", "maxLength": 30 }
+      }
+    },
+    "tried": {
+      "description": "Steps the AI agent already took, and what happened.",
+      "type": "array",
+      "maxItems": 8,
+      "items": {
+        "type": "object",
+        "required": ["step", "outcome"],
+        "additionalProperties": false,
+        "properties": {
+          "step": { "type": "string", "maxLength": 120 },
+          "outcome": { "enum": ["succeeded", "failed", "partial", "declined"] },
+          "note": { "type": "string", "maxLength": 160 }
+        }
+      }
+    },
+    "sentiment": { "enum": ["positive", "neutral", "negative"] },
+    "urgency": { "enum": ["low", "medium", "high"] },
+    "next": {
+      "description": "Suggested next step for the representative.",
+      "type": "string",
+      "maxLength": 200
+    },
+    "opener": {
+      "description": "Suggested first message that proves we listened.",
+      "type": "string",
+      "maxLength": 300
+    }
+  }
+}

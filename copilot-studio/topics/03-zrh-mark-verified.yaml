@@ -1,0 +1,41 @@
+# ZRH - Mark verified
+# Call this right after the agent verifies the customer's identity (signed-in chat, email code, SMS code...).
+# The representative then sees "Identity verified" with the method and time, and doesn't re-verify.
+kind: AdaptiveDialog
+inputs:
+  - kind: AutomaticTaskInput
+    propertyName: Method
+    description: How the customer was verified, for example "Email one-time code".
+    entity: StringPrebuiltEntity
+    shouldPromptUser: false
+
+  - kind: AutomaticTaskInput
+    propertyName: Status
+    description: verified, partial or none.
+    entity: StringPrebuiltEntity
+    shouldPromptUser: false
+
+modelDescription: Internal helper. Records that the customer's identity was verified and how. Do not trigger from user messages.
+beginDialog:
+  kind: OnRedirect
+  id: main
+  actions:
+    - kind: SetVariable
+      id: zrhSetVerified
+      variable: Global.zrh_VerifiedJson
+      value: |-
+        ="{""status"":" & JSON(If(Lower(Topic.Status) in ["verified", "partial", "none"], Lower(Topic.Status), "verified")) &
+        ",""method"":" & JSON(Left(Coalesce(Topic.Method, "Verified by the AI agent"), 60)) &
+        ",""at"":" & JSON(Text(Now(), DateTimeFormat.UTC)) & "}"
+
+inputType:
+  properties:
+    Method:
+      displayName: Method
+      type: String
+
+    Status:
+      displayName: Status
+      type: String
+
+outputType: {}

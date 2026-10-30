@@ -78,6 +78,18 @@ This is the brief from that exact recorded conversation:
 
 With generative orchestration on, the orchestrator fills the narrative parts (reason, summary, opener) from the conversation. With classic orchestration, your topics set them. Either way, the facts come only from what your topics recorded.
 
+## "Isn't this just Copilot's conversation summary?"
+
+No, and you should keep both. The summary tells the representative *what happened*. The brief tells them *what they must not ask again*, and the score shows whether they did.
+
+- **Where the facts come from.** The summary is a model reading the transcript; it can leave things out or get them wrong. The brief's facts are recorded by your topics at the moment they're captured: exact values, nothing inferred.
+- **Identity.** The summary may mention verification. The brief carries a verified status with method and time, shown as a badge the representative can rely on instead of re-verifying.
+- **Format.** The summary is text for a person to read (a paragraph, or a structured format admins can switch on). The brief is data: a don't-ask list with copy buttons, tried steps with outcomes, and an opener, which can also drive routing rules and reports.
+- **Requirements.** The summary needs Copilot features, Copilot credits and at least three customer messages. The brief needs no generative AI at all.
+- **Measurement.** Only the brief comes with a score.
+
+Where the summary wins: no setup, works with any bot, covers the human part of the conversation too, and powers wrap-up and case creation. In my demo they sit side by side, and that's the point.
+
 ## Seven things that broke when I tested it for real
 
 Building it was the easy part. Running it end to end in a real org is where the lessons were. If you build anything on Copilot Studio → Dynamics 365 handoff, these will save you a day:

@@ -95,6 +95,21 @@ Want to see it without any setup? Run the control in the PCF test harness and sw
 cd pcf/HandoffBriefCard && npm install && npm start
 ```
 
+## How is this different from Copilot's conversation summary?
+
+It complements it rather than replacing it. **The summary tells the representative what happened; the brief tells them what they must not ask again, and the score shows whether they did.**
+
+| | Copilot conversation summary (built in) | Handoff Brief |
+|---|---|---|
+| **Where facts come from** | A model reads the transcript and writes a summary; it can leave things out or get them wrong. | Your topics record each fact at the moment it's captured, so values are exact (`ORD-10482`, verified by email code). Nothing is inferred. |
+| **Identity verification** | Mentioned in the text, if the model picks it up. | A dedicated status with method and time, shown as a badge the representative can rely on. |
+| **Format** | A paragraph, or a structured format admins can switch on. Text for a person to read. | Data (JSON): a don't-ask list with copy buttons, tried steps with outcomes, next step, opener. Also usable in routing rules and reports. |
+| **AI-agent part of the chat** | Microsoft's docs say it isn't automatically included; in our trial it was, so it varies by org. | Always included: the agent writes it. |
+| **Requirements** | Copilot features on, Copilot credits, and at least three customer messages. | No generative AI needed; works with classic orchestration and where Copilot features are off. |
+| **Measurement** | None. | Handoff Quality score: did the representative still re-ask? |
+
+Where the built-in summary is better: no setup, works with any bot, covers the human part of the conversation, and powers wrap-up and case creation. Keep both. In the demo they sit side by side.
+
 ## Works without the brief too
 
 If an agent doesn't send `zrh_HandoffBrief`, the card builds a basic brief from the variables every Copilot Studio handoff carries (`va_LastPhrases`, `va_LastTopic`, `va_AgentMessage`, `va_Topics`, plus your topic variables). Dropping the control onto the form already helps; adding the topics makes it great.

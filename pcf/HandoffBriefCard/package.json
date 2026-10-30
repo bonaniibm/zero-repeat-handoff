@@ -11,7 +11,8 @@
     "start": "pcf-scripts start",
     "start:watch": "pcf-scripts start watch",
     "refreshTypes": "pcf-scripts refreshTypes",
-    "test": "tsc -p tests && node --test out/tests/tests/logic.test.js"
+    "test": "tsc -p tests && node --test out/tests/tests/logic.test.js",
+    "build:lib": "tsc -p tests"
   },
   "dependencies": {
     "@fluentui/react-components": "9.46.2",

@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8" ?>
 <manifest>
-  <control namespace="ZeroRepeat" constructor="HandoffBriefCard" version="1.0.0" display-name-key="Handoff Brief Card" description-key="Shows the representative what the customer already told the Copilot Studio agent, warns when they ask for it again, and scores the handoff." control-type="virtual">
+  <control namespace="ZeroRepeat" constructor="HandoffBriefCard" version="1.0.1" display-name-key="Handoff Brief Card" description-key="Shows the representative what the customer already told the Copilot Studio agent, warns when they ask for it again, and scores the handoff." control-type="virtual">
     <external-service-usage enabled="false">
     </external-service-usage>
 

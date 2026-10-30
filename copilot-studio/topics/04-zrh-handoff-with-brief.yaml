@@ -3,6 +3,8 @@
 #
 # With generative orchestration ON, the orchestrator fills the inputs below from the conversation
 # history, so the summary, sentiment and suggested opener cost no extra plumbing.
+# With classic orchestration, set Global.zrh_Reason, zrh_Goal, zrh_Summary, zrh_Escalation,
+# zrh_Sentiment, zrh_Urgency, zrh_NextStep and zrh_Opener in your topics instead (see the demo topic).
 # Facts, tried steps and verification come from the helper topics (deterministic, never invented).
 #
 # It writes ONE global variable, Global.zrh_HandoffBrief (schema: /schema/handoff-brief.schema.json),
@@ -68,20 +70,68 @@ beginDialog:
   id: main
   intent: {}
   actions:
-    # 1. Common parts reused by the full and the compact brief.
+    # 0. Without generative orchestration (or when reached by redirect) the inputs are empty:
+    #    fall back to Global.zrh_* values your own topics set along the way.
+    - kind: SetVariable
+      id: zrhResolveReason
+      variable: Topic.Reason
+      value: =Coalesce(Topic.Reason, Global.zrh_Reason)
+
+    - kind: SetVariable
+      id: zrhResolveGoal
+      variable: Topic.Goal
+      value: =Coalesce(Topic.Goal, Global.zrh_Goal)
+
+    - kind: SetVariable
+      id: zrhResolveSummary
+      variable: Topic.Summary
+      value: =Coalesce(Topic.Summary, Global.zrh_Summary)
+
+    - kind: SetVariable
+      id: zrhResolveEscalation
+      variable: Topic.Escalation
+      value: =Coalesce(Topic.Escalation, Global.zrh_Escalation, "customer_request")
+
+    - kind: SetVariable
+      id: zrhResolveSentiment
+      variable: Topic.Sentiment
+      value: =Coalesce(Topic.Sentiment, Global.zrh_Sentiment)
+
+    - kind: SetVariable
+      id: zrhResolveUrgency
+      variable: Topic.Urgency
+      value: =Coalesce(Topic.Urgency, Global.zrh_Urgency)
+
+    - kind: SetVariable
+      id: zrhResolveNext
+      variable: Topic.NextStep
+      value: =Coalesce(Topic.NextStep, Global.zrh_NextStep)
+
+    - kind: SetVariable
+      id: zrhResolveOpener
+      variable: Topic.Opener
+      value: =Coalesce(Topic.Opener, Global.zrh_Opener)
+
+    # Gotcha: a variable whose text starts with "{" fails with SystemError when a topic reads it back.
+    # So the pieces below never start with "{" — the outer braces are added only in the final assignment.
+
+    # 1. Common parts reused by the full and the compact brief (leading "~" is stripped at the end).
     - kind: SetVariable
       id: zrhHead
       variable: Topic.Head
       value: |-
-        ="{""v"":1,""reason"":" & JSON(Left(Coalesce(Topic.Reason, "Escalated by the AI agent"), 160)) &
-        If(IsBlank(Global.zrh_VerifiedJson), "", ",""verified"":" & Global.zrh_VerifiedJson) &
-        ",""facts"":[" & Coalesce(Global.zrh_FactsJson, "") & "]" &
+        ="~""v"":1,""reason"":" & JSON(Left(Coalesce(Topic.Reason, "Escalated by the AI agent"), 160)) &
+        If(IsBlank(Global.zrh_VerifiedStatus), "",
+            ",""verified"":{""status"":" & JSON(Global.zrh_VerifiedStatus) &
+            ",""method"":" & JSON(Coalesce(Global.zrh_VerifiedMethod, "")) &
+            ",""at"":" & JSON(Coalesce(Global.zrh_VerifiedAt, "")) & "}") &
+        ",""facts"":[" & Mid(Coalesce(Global.zrh_FactsJson, ","), 2) & "]" &
         If(IsBlank(Topic.Opener), "", ",""opener"":" & JSON(Left(Topic.Opener, 300)))
 
-    # 2. Full brief.
+    # 2. Full brief body.
     - kind: SetVariable
       id: zrhFull
-      variable: Global.zrh_HandoffBrief
+      variable: Topic.Body
       value: |-
         =Topic.Head &
         If(IsBlank(Topic.Goal), "", ",""goal"":" & JSON(Left(Topic.Goal, 160))) &
@@ -90,57 +140,169 @@ beginDialog:
         If(Lower(Topic.Sentiment) in ["positive", "neutral", "negative"], ",""sentiment"":" & JSON(Lower(Topic.Sentiment)), "") &
         If(Lower(Topic.Urgency) in ["low", "medium", "high"], ",""urgency"":" & JSON(Lower(Topic.Urgency)), "") &
         If(IsBlank(Topic.NextStep), "", ",""next"":" & JSON(Left(Topic.NextStep, 200))) &
-        ",""tried"":[" & Coalesce(Global.zrh_TriedJson, "") & "]}"
+        ",""tried"":[" & Mid(Coalesce(Global.zrh_TriedJson, ","), 2) & "]"
 
     # 3. Size guard: Dynamics 365 caps one context variable value at 4,000 characters.
     - kind: ConditionGroup
       id: zrhSizeGuard
       conditions:
         - id: zrhTooBig
-          condition: =Len(Global.zrh_HandoffBrief) > 3900
+          condition: =Len(Topic.Body) > 3900
           actions:
             - kind: SetVariable
               id: zrhCompact
-              variable: Global.zrh_HandoffBrief
-              value: =Topic.Head & "}"
+              variable: Topic.Body
+              value: =Topic.Head
 
             - kind: ConditionGroup
               id: zrhStillTooBig
               conditions:
                 - id: zrhStillTooBigYes
-                  condition: =Len(Global.zrh_HandoffBrief) > 3900
+                  condition: =Len(Topic.Body) > 3900
                   actions:
                     - kind: SetVariable
                       id: zrhMinimal
-                      variable: Global.zrh_HandoffBrief
-                      value: ="{""v"":1,""reason"":" & JSON(Left(Coalesce(Topic.Reason, "Escalated by the AI agent"), 160)) & "}"
+                      variable: Topic.Body
+                      value: ="~""v"":1,""reason"":" & JSON(Left(Coalesce(Topic.Reason, "Escalated by the AI agent"), 160))
 
-    # 4. Clear the working variables so they don't count twice toward the 28 KB transfer limit.
+    - kind: SetVariable
+      id: zrhBrief
+      variable: Global.zrh_HandoffBrief
+      value: ="{" & Mid(Topic.Body, 2) & "}"
+
+    # 4. Private message for the representative (becomes va_AgentMessage).
+    - kind: SetVariable
+      id: zrhAgentMessage
+      variable: Topic.AgentMessage
+      value: =Left(Coalesce(Topic.Summary, Topic.Reason, "Escalated by the AI agent"), 400)
+
+    # 5. Clear every working variable. On transfer Copilot Studio sends ALL global AND topic variables,
+    #    so without this the brief travels three times toward the 28 KB limit.
+    - kind: SetVariable
+      id: zrhClearHead
+      variable: Topic.Head
+      value: =""
+
+    - kind: SetVariable
+      id: zrhClearBody
+      variable: Topic.Body
+      value: =""
+
+    - kind: SetVariable
+      id: zrhClearReason
+      variable: Topic.Reason
+      value: =""
+
+    - kind: SetVariable
+      id: zrhClearGoal
+      variable: Topic.Goal
+      value: =""
+
+    - kind: SetVariable
+      id: zrhClearSummary
+      variable: Topic.Summary
+      value: =""
+
+    - kind: SetVariable
+      id: zrhClearEscalation
+      variable: Topic.Escalation
+      value: =""
+
+    - kind: SetVariable
+      id: zrhClearSentiment
+      variable: Topic.Sentiment
+      value: =""
+
+    - kind: SetVariable
+      id: zrhClearUrgency
+      variable: Topic.Urgency
+      value: =""
+
+    - kind: SetVariable
+      id: zrhClearNext
+      variable: Topic.NextStep
+      value: =""
+
+    - kind: SetVariable
+      id: zrhClearOpener
+      variable: Topic.Opener
+      value: =""
+
     - kind: SetVariable
       id: zrhClearFacts
       variable: Global.zrh_FactsJson
-      value: =Blank()
+      value: =""
 
     - kind: SetVariable
       id: zrhClearTried
       variable: Global.zrh_TriedJson
-      value: =Blank()
+      value: =""
 
     - kind: SetVariable
       id: zrhClearVerified
-      variable: Global.zrh_VerifiedJson
-      value: =Blank()
+      variable: Global.zrh_VerifiedStatus
+      value: =""
+
+    - kind: SetVariable
+      id: zrhClearVerifiedMethod
+      variable: Global.zrh_VerifiedMethod
+      value: =""
+
+    - kind: SetVariable
+      id: zrhClearVerifiedAt
+      variable: Global.zrh_VerifiedAt
+      value: =""
+
+    - kind: SetVariable
+      id: zrhClearGReason
+      variable: Global.zrh_Reason
+      value: =""
+
+    - kind: SetVariable
+      id: zrhClearGGoal
+      variable: Global.zrh_Goal
+      value: =""
+
+    - kind: SetVariable
+      id: zrhClearGSummary
+      variable: Global.zrh_Summary
+      value: =""
+
+    - kind: SetVariable
+      id: zrhClearGEscalation
+      variable: Global.zrh_Escalation
+      value: =""
+
+    - kind: SetVariable
+      id: zrhClearGSentiment
+      variable: Global.zrh_Sentiment
+      value: =""
+
+    - kind: SetVariable
+      id: zrhClearGUrgency
+      variable: Global.zrh_Urgency
+      value: =""
+
+    - kind: SetVariable
+      id: zrhClearGNext
+      variable: Global.zrh_NextStep
+      value: =""
+
+    - kind: SetVariable
+      id: zrhClearGOpener
+      variable: Global.zrh_Opener
+      value: =""
 
     - kind: SendActivity
       id: zrhTellCustomer
       activity: I'm connecting you with a colleague now. They'll see everything we've covered, so you won't need to repeat yourself.
 
-    # 5. Transfer. The private message becomes va_AgentMessage for engagement hubs that don't read the brief.
+    # 6. Transfer. messageToAgent is a message template, not a formula: interpolate with {...}.
     - kind: TransferConversationV2
       id: zrhTransfer
       transferType:
         kind: TransferToAgent
-        messageToAgent: =Coalesce(Topic.Summary, Topic.Reason, "Escalated by the AI agent")
+        messageToAgent: "{Topic.AgentMessage}"
 
 inputType:
   properties:

@@ -20,13 +20,21 @@ beginDialog:
   kind: OnRedirect
   id: main
   actions:
+    # Plain values; the hand-off topic turns them into the "verified" object.
     - kind: SetVariable
-      id: zrhSetVerified
-      variable: Global.zrh_VerifiedJson
-      value: |-
-        ="{""status"":" & JSON(If(Lower(Topic.Status) in ["verified", "partial", "none"], Lower(Topic.Status), "verified")) &
-        ",""method"":" & JSON(Left(Coalesce(Topic.Method, "Verified by the AI agent"), 60)) &
-        ",""at"":" & JSON(Text(Now(), DateTimeFormat.UTC)) & "}"
+      id: zrhSetVerifiedStatus
+      variable: Global.zrh_VerifiedStatus
+      value: =If(Lower(Topic.Status) in ["verified", "partial", "none"], Lower(Topic.Status), "verified")
+
+    - kind: SetVariable
+      id: zrhSetVerifiedMethod
+      variable: Global.zrh_VerifiedMethod
+      value: =Left(Coalesce(Topic.Method, "Verified by the AI agent"), 60)
+
+    - kind: SetVariable
+      id: zrhSetVerifiedAt
+      variable: Global.zrh_VerifiedAt
+      value: =Text(Now(), DateTimeFormat.UTC)
 
 inputType:
   properties:

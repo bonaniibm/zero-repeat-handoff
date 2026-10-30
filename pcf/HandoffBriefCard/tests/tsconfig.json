@@ -9,5 +9,5 @@
     "types": ["node", "powerapps-component-framework"],
     "outDir": "../out/tests"
   },
-  "include": ["logic.test.ts"]
+  "include": ["logic.test.ts", "../HandoffBriefCard/lib/*.ts"]
 }

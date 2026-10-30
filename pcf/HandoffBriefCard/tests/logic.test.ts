@@ -4,6 +4,7 @@ import { buildFallbackBrief, humanize, parseBrief } from "../HandoffBriefCard/li
 import { findReAsks, isCustomerRepeatComplaint, isGenericOpener, scoreHandoff, type TranscriptMessage } from "../HandoffBriefCard/lib/reask";
 import { messageText } from "../HandoffBriefCard/lib/dataverse";
 import { demoBrief } from "../HandoffBriefCard/lib/demo";
+import { parseTranscriptDocument } from "../HandoffBriefCard/lib/transcript";
 
 const msg = (id: string, role: string, text: string, at = id): TranscriptMessage => ({ id, role, text, at });
 
@@ -81,6 +82,39 @@ test("scoring ignores the AI agent part and penalises re-asks", () => {
     assert.equal(bad.score, 100 - 20 - 15 - 25);
 
     assert.equal(scoreHandoff(bot, demoBrief).representativeMessages, 0);
+});
+
+test("saved transcript parsing and roles", () => {
+    const inner = [
+        { createdDateTime: "2026-10-30T12:16:20Z", isControlMessage: false, content: "I can't log in", tags: "ChannelId-lcw,FromCustomer", from: { application: { displayName: "Customer" } } },
+        { createdDateTime: "2026-10-30T12:16:21Z", isControlMessage: false, content: "What's the email?", tags: "public", from: { application: { displayName: "VRL Parcel Bot" } } },
+        { createdDateTime: "2026-10-30T12:17:00Z", isControlMessage: true, content: "<addmember/>" },
+        { createdDateTime: "2026-10-30T12:22:00Z", isControlMessage: false, isFromAgent: true, content: "<p>Could you give me your order number please?</p>", from: { user: { displayName: "Bonani" } } },
+    ];
+    const doc = JSON.stringify([{ Content: JSON.stringify(inner) }]);
+    const msgs = parseTranscriptDocument(doc);
+    assert.deepEqual(msgs.map((m) => m.role), ["customer", "bot", "agent"]);
+    assert.equal(msgs[2].text, "Could you give me your order number please?");
+    assert.equal(scoreHandoff(msgs, demoBrief).reAsks.length, 1);
+    assert.deepEqual(parseTranscriptDocument("not json"), []);
+});
+
+test("real Contact Center transcript shape: bot messages are isFromAgent too", () => {
+    const bot = { isFromAgent: true, from: { user: { displayName: "Copilot VRL Parcel Bot (Microsoft Copilot Studio)" } } };
+    const inner = [
+        { ...bot, createdDateTime: "2026-10-30T12:16:10Z", content: "Hello, I'm VRL Parcel Bot. How can I help?" },
+        { createdDateTime: "2026-10-30T12:16:11Z", isFromAgent: false, tags: "ChannelId-lcw,OmnichannelContextMessage,Hidden", content: '{"EventName":"startConversation"}' },
+        { createdDateTime: "2026-10-30T12:16:12Z", tags: "ChannelId-lcw,FromCustomer", content: "I can't log in", from: { application: { displayName: "Customer" } } },
+        { ...bot, createdDateTime: "2026-10-30T12:16:13Z", content: "What's the email address on your account?" },
+        { ...bot, createdDateTime: "2026-10-30T12:17:05Z", tags: '{"type":"Escalate","context":{}}', content: "Private message" },
+        { createdDateTime: "2026-10-30T12:22:00Z", isFromAgent: true, tags: "public,client_activity_id:x", from: { user: { displayName: "Bonani" } }, content: "Hi, thanks for waiting. Could you give me your order number please?" },
+    ];
+    const msgs = parseTranscriptDocument(JSON.stringify([{ Content: JSON.stringify(inner) }]));
+    assert.deepEqual(msgs.map((m) => m.role), ["bot", "system", "customer", "bot", "system", "agent"]);
+    const score = scoreHandoff(msgs, demoBrief);
+    assert.deepEqual(score.reAsks.map((r) => r.fact.k), ["Order number"], "the bot asking for the email doesn't count");
+    assert.equal(score.genericOpener, false, "the bot's 'How can I help?' doesn't count");
+    assert.equal(score.score, 80);
 });
 
 test("transcript content envelopes", () => {

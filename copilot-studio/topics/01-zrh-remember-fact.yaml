@@ -30,9 +30,11 @@ beginDialog:
             - kind: SetVariable
               id: zrhAppendFact
               variable: Global.zrh_FactsJson
+              # Stored with a leading comma on purpose: a global whose value starts with "{" fails with
+              # SystemError when another topic reads it. The hand-off topic strips the first comma.
               value: |-
-                =If(IsBlank(Global.zrh_FactsJson), "", Global.zrh_FactsJson & ",") &
-                "{""k"":" & JSON(Left(Topic.Label, 40)) & ",""v"":" & JSON(Left(Topic.Value, 120)) & "}"
+                =Coalesce(Global.zrh_FactsJson, "") &
+                ",{""k"":" & JSON(Left(Topic.Label, 40)) & ",""v"":" & JSON(Left(Topic.Value, 120)) & "}"
 
 inputType:
   properties:

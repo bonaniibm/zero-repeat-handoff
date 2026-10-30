@@ -30,9 +30,10 @@ beginDialog:
     - kind: SetVariable
       id: zrhAppendStep
       variable: Global.zrh_TriedJson
+      # Leading comma on purpose, see ZRH - Remember fact.
       value: |-
-        =If(IsBlank(Global.zrh_TriedJson), "", Global.zrh_TriedJson & ",") &
-        "{""step"":" & JSON(Left(Coalesce(Topic.Step, "Step"), 120)) &
+        =Coalesce(Global.zrh_TriedJson, "") &
+        ",{""step"":" & JSON(Left(Coalesce(Topic.Step, "Step"), 120)) &
         ",""outcome"":" & JSON(If(Lower(Topic.Outcome) in ["succeeded", "failed", "partial", "declined"], Lower(Topic.Outcome), "partial")) &
         If(IsBlank(Topic.Note), "", ",""note"":" & JSON(Left(Topic.Note, 160))) & "}"
 

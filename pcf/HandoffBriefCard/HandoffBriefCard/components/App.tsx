@@ -61,9 +61,17 @@ export const App: React.FC<AppProps> = (props) => {
         if (!liveCheck || !conversationId) return;
 
         let stopped = false;
+        let emptyPolls = 0;
         const tick = async (): Promise<void> => {
             try {
                 const rows = await loadTranscript(webApi, conversationId);
+                // Some orgs never populate the live table: after ~3 empty polls, say so and stop.
+                emptyPolls = rows.length === 0 ? emptyPolls + 1 : 0;
+                if (emptyPolls >= 3) {
+                    stopped = true;
+                    setStatus("unavailable");
+                    return;
+                }
                 if (!stopped) setMessages((prev) => (prev.length === rows.length ? prev : rows));
             } catch (e) {
                 if (e instanceof TranscriptUnavailableError) {

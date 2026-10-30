@@ -2,6 +2,8 @@
 
 **When a Copilot Studio agent hands a customer to a person in Dynamics 365 Contact Center, the person should pick up exactly where the AI left off. This kit makes that happen, and measures it.**
 
+📖 **Read the story behind it on Medium:** [Your AI agent did the work. Then your human agent asked "How can I help you today?"](https://bonanipaulchaudhury.medium.com/your-ai-agent-did-the-work-then-your-human-agent-asked-how-can-i-help-you-today-949562e1b418)
+
 > 96% of customer-service leaders say their AI-to-human handoffs keep context.
 > 83% of customers say they still have to repeat themselves at least sometimes.
 > — Five9 2026 research (Hanover Research, April 2026, 3,000 consumers and 600 business leaders in the US, UK and Germany)

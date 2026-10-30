@@ -10,6 +10,16 @@ Out of the box, the representative gets the transcript and, depending on configu
 
 ![Handoff Brief card in Copilot Service workspace](docs/images/workspace.png)
 
+## Demo (recorded live in a Dynamics 365 Contact Center trial)
+
+**1. The customer talks to the Copilot Studio agent and asks for a person.** The agent records the email and order number, verifies the customer, logs that the reset link failed, and hands off with a brief.
+
+![Customer chat with the Copilot Studio agent](docs/images/demo-1-customer.gif)
+
+**2. The representative accepts, and the Handoff Brief card is already there.** One click copies an opener that proves the customer was heard, instead of "How can I help you today?".
+
+![Representative accepts and sees the Handoff Brief card](docs/images/demo-2-representative.gif)
+
 ## What's in the box
 
 | Piece | What it does |
